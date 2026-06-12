@@ -1,0 +1,17 @@
+# Worker-review environment example. Keep real values out of git.
+# worker-review handles review and maintenance queues.
+
+QA_WEBAPP_DATABASE_URL=postgresql+psycopg://qa_workflow:REPLACE_ME@postgres:5432/qa_workflow
+QA_FERNET_KEYS=REPLACE_ME_FERNET_KEY
+QA_REVIEW_WORKER_CONCURRENCY=6
+QA_QUEUE_POOL_MIN_SIZE=1
+QA_QUEUE_POOL_MAX_SIZE=2
+QA_QUEUE_POOL_MAX_LIFETIME=3600
+QA_USE_DB_ARTIFACTS=1
+QA_KB_STRICT=1
+QA_QUEUE_DEPTH_WARN=50
+
+# Optional strong-model defaults. Per-user web settings override these for web-triggered jobs.
+# ANTHROPIC_BASE_URL=https://example.invalid/v1
+# ANTHROPIC_API_KEY=REPLACE_ME
+# ANTHROPIC_MODEL=claude-sonnet-4-6

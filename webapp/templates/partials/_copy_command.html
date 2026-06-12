@@ -1,0 +1,13 @@
+<div class="section-card">
+  <div class="alert info" style="margin-bottom:12px">
+    <b>AI 复核未启用</b>，在<a href="/settings">设置</a>中配置复核模型后即可使用。
+  </div>
+  <details>
+    <summary class="muted" style="cursor:pointer">技术详情（{{ reason }}）</summary>
+    <p class="muted" style="margin:10px 0">在本机 Claude Code 中运行以下命令可完成本步</p>
+    <div class="cmd">
+      <code id="copy-cmd">{{ command }}</code>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="copyText(this,'#copy-cmd')">复制命令</button>
+    </div>
+  </details>
+</div>

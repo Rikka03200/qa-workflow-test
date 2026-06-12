@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Sprint {{ date }} · QA 控制台{% endblock %}
+
+{% block topbar %}
+  <div class="crumb">
+    <a href="/?product={{ nav.product }}">我的 Sprint</a>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3l4 4-4 4"/></svg>
+    <span class="cur">Sprint <span class="mono">{{ date }}</span></span>
+  </div>
+  <div class="spacer"></div>
+  {% if sprint_dates|length > 1 %}
+  <select class="ui-select" onchange="location.href='/sprint/{{ nav.product }}/'+this.value" aria-label="切换 Sprint">
+    {% for d in sprint_dates %}<option value="{{ d }}" {% if d==date %}selected{% endif %}>{{ d }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <form hx-post="/jobs/select" hx-target="#job-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="product" value="{{ nav.product }}"><input type="hidden" name="date" value="{{ date }}">
+    <button class="btn btn-ghost" {% if busy %}disabled{% endif %}>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3"/></svg>
+      同步工单
+    </button>
+  </form>
+  <form hx-post="/jobs/generate" hx-target="#job-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="product" value="{{ nav.product }}"><input type="hidden" name="date" value="{{ date }}"><input type="hidden" name="mode" value="draft">
+    <button class="btn btn-primary" {% if busy or not board.exists %}disabled{% endif %}>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="0"><path d="M4 3v10l9-5z" fill="currentColor"/></svg>
+      生成用例
+    </button>
+  </form>
+  <form hx-post="/jobs/delete-sprint" hx-target="#del-err" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="product" value="{{ nav.product }}"><input type="hidden" name="date" value="{{ date }}">
+    <button type="button" class="btn btn-danger btn-sm" {% if busy %}disabled{% endif %}
+      data-confirm data-confirm-title="删除 Sprint {{ date }}？"
+      data-confirm-body="会把这个 Sprint 从看板移除，已生成的用例放进回收站、可恢复；不影响其它 Sprint。"
+      data-confirm-ok="删除" data-confirm-danger>
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.8 4h9.4M5.5 4V2.8h4V4M4.3 4l.6 8.2h5.2l.6-8.2"/></svg>
+      删除
+    </button>
+  </form>
+{% endblock %}
+
+{% block content %}
+  <div class="page-h">
+    <h1>Sprint {{ date }}</h1>
+    <span class="meta">本期 <span class="mono">{{ board.run_count }}</span> 单 · 已生成 <span class="mono">{{ board.done_count }}</span> · 待生成 <span class="mono">{{ board.pending }}</span></span>
+  </div>
+
+  {% if busy %}<div class="alert info">任务进行中，完成后可继续操作</div>{% endif %}
+  <div id="del-err"></div>
+
+  <section class="kpis" aria-label="本期统计">
+    <div class="kpi"><div class="k-label">本期工单</div><div class="k-num">{{ board.run_count }}</div></div>
+    <div class="kpi accent"><div class="k-label"><span class="dot" style="background:var(--pass)"></span>已生成</div><div class="k-num">{{ board.done_count }}</div></div>
+    <div class="kpi"><div class="k-label"><span class="dot" style="background:var(--info)"></span>待生成</div><div class="k-num">{{ board.pending }}</div></div>
+    <div class="kpi"><div class="k-label"><span class="dot" style="background:var(--muted)"></span>已合并</div><div class="k-num">{{ board.skip_count }}</div></div>
+  </section>
+
+  <section class="runbar" aria-label="生成进度">
+    <div class="rb-label">生成进度　<span class="mono">{{ board.done_count }} / {{ board.run_count }}</span></div>
+    <div class="track" role="progressbar" aria-valuenow="{{ board.done_count }}" aria-valuemin="0" aria-valuemax="{{ board.run_count }}">
+      <div class="fill" style="width:{{ board.pct }}%"></div>
+    </div>
+    <div class="rb-actions">
+      {% set dis = 'disabled' if busy else '' %}
+      {% if board.awaiting_continue %}
+      <form hx-post="/jobs/generate" hx-target="#job-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="product" value="{{ nav.product }}"><input type="hidden" name="date" value="{{ date }}"><input type="hidden" name="mode" value="resume">
+        <button class="btn btn-primary btn-sm" {{ dis }}>继续生成（{{ board.awaiting_continue }} 单）</button>
+      </form>
+      {% endif %}
+      {% if board.done_count %}
+      <form hx-post="/jobs/generate" hx-target="#job-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="product" value="{{ nav.product }}"><input type="hidden" name="date" value="{{ date }}"><input type="hidden" name="mode" value="regen">
+        <button type="button" class="btn btn-ghost btn-sm" {{ dis }}
+          data-confirm data-confirm-title="重新生成本期用例？"
+          data-confirm-body="会清空本期每个工单现有的用例和你填的待确认，重新生成一份。"
+          data-confirm-ok="重新生成">重新生成</button>
+      </form>
+      {% endif %}
+      <form hx-post="/jobs/spot-check" hx-target="#job-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="product" value="{{ nav.product }}"><input type="hidden" name="date" value="{{ date }}">
+        <button class="btn btn-ghost btn-sm" {{ dis }}>复核用例</button>
+      </form>
+      {% if board.done_count %}
+      <a class="btn btn-ghost btn-sm" href="/sprint/{{ nav.product }}/{{ date }}/kb" title="把本期确认的业务规则批量提炼、勾选后沉淀进知识库">知识回填</a>
+      {% endif %}
+    </div>
+  </section>
+
+  <div id="job-area">
+    {% if recent_jobs and recent_jobs[0].status == 'running' %}
+    <div id="job-panel" hx-get="/jobs/{{ recent_jobs[0].id }}/log" hx-trigger="load delay:200ms" hx-target="this" hx-swap="outerHTML">加载运行中任务…</div>
+    {% endif %}
+  </div>
+
+  {% include "partials/_decisions_table.html" %}
+{% endblock %}
+{% block scripts %}{% endblock %}

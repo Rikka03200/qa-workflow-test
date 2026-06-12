@@ -1,0 +1,3 @@
+# Test-only dependencies. Keep runtime/Docker image lean by installing this only in CI or local verification.
+-r requirements-web.txt
+pytest>=8.0

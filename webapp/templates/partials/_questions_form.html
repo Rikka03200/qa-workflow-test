@@ -1,0 +1,84 @@
+<div id="questions-panel">
+  {% set qs = questions %}
+  {% if result %}
+    {% if result.ok %}
+      <div class="alert ok">已保存{% if result.issues %}，{{ result.issues|length }} 项提醒：{% for i in result.issues %}{{ i.message }}；{% endfor %}{% endif %}</div>
+    {% elif result.kind == 'conflict' %}
+      <div class="alert warn">{{ result.error }}</div>
+    {% elif result.kind == 'validation' %}
+      <div class="alert err">{{ result.error }}<br>{% for i in result.issues %}<span class="mono">{{ i.level }}</span> {{ i.message }}<br>{% endfor %}</div>
+    {% else %}
+      <div class="alert err">{{ result.error }}</div>
+    {% endif %}
+  {% endif %}
+
+  {% if qs.form == 'none' %}
+    <div class="empty"><div class="big">无待确认问题</div>可直接查看测试用例</div>
+
+  {% elif qs.form in ['legacy', 'missing'] %}
+    <div class="alert warn">清单为旧格式，整理后可回答</div>
+    <form hx-post="/ticket/{{ product }}/{{ date }}/{{ ear }}/questions/normalize"
+          hx-target="#questions-panel" hx-swap="outerHTML">
+      <button class="btn btn-ghost">整理格式</button>
+    </form>
+    {% if qs.raw %}<div class="artifact" style="margin-top:14px"><pre>{{ qs.raw | pre }}</pre></div>{% endif %}
+
+  {% else %}
+    <div class="toolbar">
+      <span class="muted">共 <b>{{ qs.counts.total }}</b> 项 · 已回答 <b>{{ qs.counts.human }}</b> · 已预答 <b>{{ qs.counts.auto }}</b> ·
+        <span class="{{ 'q-amber' if qs.counts.pending else '' }}">待回答 <b>{{ qs.counts.pending }}</b></span></span>
+    </div>
+    <form hx-post="/ticket/{{ product }}/{{ date }}/{{ ear }}/questions"
+          hx-target="#questions-panel" hx-swap="outerHTML">
+      <input type="hidden" name="mtime" value="{{ questions_mtime }}">
+      {% for b in qs.blocks %}
+      <div class="q-block">
+        <div class="q-head">
+          <span class="q-num">问题 {{ b.num }}</span>
+          <span class="q-title">{{ b.title | humanize }}</span>
+          <div style="flex:1"></div>
+          <span class="q-state {{ b.state }}">{{ {'human':'已回答','auto':'已预答','placeholder':'待回答'}[b.state] }}</span>
+        </div>
+        <div class="q-body">
+          <div class="q-field"><div class="q-k">问题</div><div class="q-v">{{ b.problem | humanize }}</div></div>
+          <div class="q-field"><div class="q-k">依据</div><div class="q-v">{{ b.source | evidence }}</div></div>
+          <div class="q-field"><div class="q-k">影响</div><div class="q-v">{{ b.impact | humanize }}</div></div>
+          {% if b.needs_human %}<div class="q-hint">需你或产品确认</div>{% endif %}
+
+          {% if b.options %}
+          <div class="q-k" style="margin-top:6px">请选择</div>
+          <div class="q-opts">
+            {% for o in b.options %}
+            <label class="q-opt {{ 'sel' if b.selected==o.key else '' }}">
+              <input type="radio" name="q_{{ b.num }}_choice" value="{{ o.key }}" {% if b.selected==o.key %}checked{% endif %}>
+              <span class="ok">{{ o.key }}</span><span class="ot">{{ o.text | humanize }}</span>
+            </label>
+            {% endfor %}
+            <label class="q-opt {{ 'sel' if b.selected=='__custom__' else '' }}">
+              <input type="radio" name="q_{{ b.num }}_choice" value="__custom__" {% if b.selected=='__custom__' %}checked{% endif %}>
+              <span class="ok">其他</span>
+              <input class="q-custom" type="text" name="q_{{ b.num }}_custom" value="{{ b.custom_text }}"
+                     placeholder="填写答案"
+                     onfocus="this.closest('.q-opt').querySelector('input[type=radio]').checked=true">
+            </label>
+          </div>
+          <div class="q-supp">
+            <div class="q-k">补充说明（可选）</div>
+            <textarea name="q_{{ b.num }}_supplement" placeholder="">{{ b.supplement | humanize }}</textarea>
+          </div>
+          {% else %}
+          <div class="q-answer">
+            <div class="q-k">答复{% if b.state=='human' %}（可修改）{% elif b.state=='auto' %}（已预答，可修改）{% endif %}</div>
+            <textarea name="q_{{ b.num }}" placeholder="填写确认结论，未定填 [待确认]">{{ b.answer_display | humanize }}</textarea>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="save-bar">
+        <button class="btn btn-primary" type="submit">保存答复</button>
+        <span class="htmx-indicator muted mono">保存中…</span>
+      </div>
+    </form>
+  {% endif %}
+</div>

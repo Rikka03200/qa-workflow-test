@@ -1,0 +1,16 @@
+# Worker environment. Use the same platform DB and Fernet key ring as the web service.
+# Keep real values out of git. Do not paste production secrets into this example.
+
+POSTGRES_DB=qa_workflow
+POSTGRES_USER=qa_workflow
+POSTGRES_PASSWORD=REPLACE_ME
+
+QA_WEBAPP_DATABASE_URL=postgresql+psycopg://qa_workflow:REPLACE_ME@postgres:5432/qa_workflow
+QA_FERNET_KEYS=REPLACE_ME_FERNET_KEY
+
+# Optional weak-model defaults. Per-user web settings override these for web-triggered jobs.
+# CHEAP_MODEL_PROVIDER=anthropic
+# CHEAP_MODEL_BASE_URL=https://example.invalid/anthropic
+# CHEAP_MODEL_API_KEY=REPLACE_ME
+# CHEAP_MODEL_NAME=qwen3.7-max
+# CHEAP_MODEL_ENABLED=true

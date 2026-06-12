@@ -1,0 +1,64 @@
+# --- 凭证与本地配置（不要入仓） ---
+config/config.local.yaml
+config/*.local.*
+.mcp.json
+.env
+.env.*
+
+# --- 工单实际数据（含 Jira/客户信息，默认不要入公开仓库）---
+tickets/
+userdata/
+
+# --- 本地索引 / 缓存 / 运行态 ---
+.codegraph/
+.work/
+**/__pycache__/
+*.pyc
+
+# --- 批量抽取原始数据 / 临时分析产物 ---
+_kb/projects/*/_bulk-index/
+_kb/projects/*/_backup/
+*_cmt.json
+ear*.json
+fields.json
+tester.json
+*.txt
+scripts/_dry-run-*.py
+
+# --- 私人工单样例 / 本地编辑器规则 ---
+之前我的用例（示例）/
+.cursor/
+
+# --- 大尺寸或敏感附件 ---
+**/attachments/
+**/screenshots/
+**/*.bak
+
+# --- 编辑器 / OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Python venv（如果以后加脚本）---
+.venv/
+
+# --- 临时与日志 ---
+*.log
+logs/
+tmp/
+
+# --- webapp v3 前端：机密 / 运行态不入仓；依赖清单与示例保留 ---
+webapp/data/*.json
+webapp/data/secret.key
+webapp/data/fernet.key
+webapp/data/audit.log
+deploy/env/*.env
+deploy/secrets/*
+deploy/reports/
+!deploy/secrets/*.example
+!deploy/secrets/README.md
+!deploy/env/*.example
+!webapp/requirements-web.txt
+!webapp/requirements-test.txt

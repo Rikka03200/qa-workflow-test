@@ -1,0 +1,30 @@
+{# 新增 Sprint 弹窗：在一个弹窗内选 Jira Sprint 并同步工单（不再往页面里塞第二个内联模块）。#}
+<div class="modal-ov" data-modal>
+  <div class="modal-card">
+    <div class="modal-t">新增 Sprint</div>
+    {% if sprints %}
+    <div class="modal-m">从 Jira 选择一个 Sprint，自动拉取属于你的工单加入看板。</div>
+    <form hx-post="/jobs/new-sprint" hx-target="#ns-err" hx-swap="innerHTML" hx-disabled-elt="find button">
+      <input type="hidden" name="product" value="{{ product }}">
+      <div class="field" style="margin-bottom:16px">
+        <label for="ns-date">Sprint</label>
+        <select class="ui-select" id="ns-date" name="date" required style="width:100%">
+          {% for s in sprints %}
+          <option value="{{ s.date }}">{{ s.name }}{% if s.state %} · {{ {'ACTIVE':'进行中','CLOSED':'已结束','FUTURE':'未开始'}.get(s.state, s.state) }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="ns-err"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-modal-close>取消</button>
+        <button type="submit" class="btn btn-primary btn-sm">新增</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="modal-m">Jira 中的 Sprint 都已经在你的看板里了。</div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost btn-sm" data-modal-close>关闭</button>
+    </div>
+    {% endif %}
+  </div>
+</div>

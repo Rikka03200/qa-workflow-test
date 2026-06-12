@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{% block title %}QA 控制台{% endblock %}</title>
+<meta name="csrf-cookie" content="{{ csrf_cookie_name }}" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/app.css?v=16" />
+<script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="mark">Q</div>
+      <div>
+        <b>QA 控制台</b><br />
+        <span class="sub">{{ nav.product_display }}</span>
+      </div>
+    </div>
+
+    {% if nav.products|length > 1 %}
+    <div class="switcher" role="group" aria-label="产品线">
+      <select class="ui-select" onchange="location.href='/?product='+this.value" aria-label="切换产品线">
+        {% for pid, p in nav.products.items() %}
+        <option value="{{ pid }}" {% if pid==nav.product %}selected{% endif %}>{{ product_display(pid) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <nav aria-label="主导航">
+      <a class="nav-item {% if nav.active in ['index','sprint','ticket'] %}active{% endif %}" href="/?product={{ nav.product }}">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="5" height="5"/><rect x="10.5" y="2.5" width="5" height="5"/><rect x="2.5" y="10.5" width="5" height="5"/><rect x="10.5" y="10.5" width="5" height="5"/></svg>
+        看板
+      </a>
+      <a class="nav-item {% if nav.active=='kb' %}active{% endif %}" href="/admin/kb?product={{ nav.product }}">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h12v14H3z"/><path d="M7 2v14"/><path d="M3 6h12M3 10h12"/></svg>
+        知识库
+      </a>
+      <a class="nav-item {% if nav.active=='admin' %}active{% endif %}" href="/admin/modules?product={{ nav.product }}">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h14M2 9h14M2 13h14"/><circle cx="5" cy="5" r="1" fill="currentColor"/><circle cx="5" cy="9" r="1" fill="currentColor"/><circle cx="5" cy="13" r="1" fill="currentColor"/></svg>
+        管理
+      </a>
+      <a class="nav-item {% if nav.active=='settings' %}active{% endif %}" href="/settings?product={{ nav.product }}">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="2.4"/><path d="M9 2v2M9 14v2M2 9h2M14 9h2M4 4l1.4 1.4M12.6 12.6 14 14M14 4l-1.4 1.4M5.4 12.6 4 14"/></svg>
+        设置
+      </a>
+    </nav>
+
+    <div class="user">
+      <div class="avatar">{{ user.initial }}</div>
+      <div>
+        <div class="name">{{ user.display_name }}</div>
+        <div class="role">{{ user.role }}</div>
+      </div>
+      <a class="logout" href="/logout" title="退出">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 14H3V2h3M10 11l3-3-3-3M13 8H6"/></svg>
+      </a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      {% block topbar %}{% endblock %}
+    </header>
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+<script src="/static/app.js?v=16"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

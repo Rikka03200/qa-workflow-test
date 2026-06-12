@@ -1,0 +1,15 @@
+# Copy this file to a private .env file or export equivalent variables in the shell.
+# Keep real values out of git. Do not paste production secrets into this example.
+
+POSTGRES_DB=qa_workflow
+POSTGRES_USER=qa_workflow
+POSTGRES_PASSWORD=REPLACE_ME
+
+QA_WEBAPP_DATABASE_URL=postgresql+psycopg://qa_workflow:REPLACE_ME@postgres:5432/qa_workflow
+QA_WEBAPP_SECRET=REPLACE_ME_32_BYTES_OR_MORE
+QA_FERNET_KEYS=REPLACE_ME_FERNET_KEY
+QA_WEBAPP_SECURE_COOKIE=1
+QA_WEBAPP_CONCURRENCY=4
+
+# Optional: separate structured knowledge-base DB; otherwise scripts keep their existing fallback.
+# QA_KB_DATABASE_URL=postgresql://qa_workflow:REPLACE_ME@postgres:5432/qa_knowledge

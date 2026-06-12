@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}CodeArts 容器路径 - {{ product|upper }}{% endblock %}
+{% block topbar %}
+<div class="crumb">
+  <a href="/?product={{ nav.product }}">我的 Sprint</a>
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3l4 4-4 4"/></svg>
+  <span class="cur">CodeArts 容器路径</span>
+</div>
+<div class="spacer"></div>
+<button class="btn btn-primary" id="btn-save">保存</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-h">
+  <h1>CodeArts 容器路径</h1>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;height:calc(100vh - 200px);">
+  <!-- 左侧：树编辑器 -->
+  <div class="panel" style="display:flex;flex-direction:column;">
+    <div class="panel-h">
+      <div class="panel-title">目录树</div>
+      <button class="btn btn-sm btn-ghost" id="btn-add">添加节点</button>
+    </div>
+    <div class="panel-body" style="flex:1;overflow-y:auto;" id="tree-editor"></div>
+  </div>
+
+  <!-- 右侧：预览 -->
+  <div class="panel" style="display:flex;flex-direction:column;">
+    <div class="panel-h">
+      <div class="panel-title">预览</div>
+    </div>
+    <div class="panel-body" style="flex:1;overflow-y:auto;">
+      <pre id="preview" class="mono" style="font-size:13px;line-height:1.6;color:var(--body);white-space:pre;"></pre>
+    </div>
+  </div>
+</div>
+
+<style>
+.tree-node {
+  margin-left:20px;
+  border-left:1px solid var(--hairline);
+  padding-left:8px;
+  margin-top:4px;
+}
+.tree-item {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 8px;
+  margin-bottom:4px;
+  border-radius:4px;
+}
+.tree-item:hover {
+  background:var(--surface-card);
+}
+.tree-toggle {
+  width:14px;
+  height:14px;
+  cursor:pointer;
+  color:var(--muted);
+  flex-shrink:0;
+}
+.tree-text {
+  flex:1;
+  font-family:var(--mono);
+  font-size:13px;
+  padding:4px 8px;
+  border:1px solid transparent;
+  border-radius:4px;
+  color:var(--ink);
+  background:transparent;
+}
+.tree-text:focus {
+  outline:none;
+  border-color:var(--primary);
+  background:var(--canvas);
+}
+.tree-actions {
+  display:flex;
+  gap:4px;
+  opacity:0;
+}
+.tree-item:hover .tree-actions {
+  opacity:1;
+}
+.tree-btn {
+  width:24px;
+  height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:4px;
+  border:1px solid var(--hairline);
+  background:var(--canvas);
+  cursor:pointer;
+}
+.tree-btn:hover {
+  background:var(--surface-card);
+  border-color:var(--primary);
+}
+.tree-btn.danger:hover {
+  border-color:var(--fail);
+  color:var(--fail);
+}
+</style>
+
+<script>
+let treeData = {{ tree_json|safe }};
+
+function renderTree(nodes, parentEl, level = 0) {
+  nodes.forEach((node, idx) => {
+    node._expanded = node._expanded !== false;
+
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'tree-item';
+
+    const toggleBtn = document.createElement('span');
+    toggleBtn.className = 'tree-toggle';
+    if (node.children && node.children.length > 0) {
+      toggleBtn.textContent = node._expanded ? '▾' : '▸';
+      toggleBtn.onclick = () => {
+        node._expanded = !node._expanded;
+        refresh();
+      };
+    }
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'tree-text';
+    textSpan.contentEditable = 'true';
+    textSpan.textContent = node.text;
+    textSpan.addEventListener('input', () => {
+      node.text = textSpan.textContent.trim();
+      updatePreview();
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'tree-actions';
+
+    const btnAdd = document.createElement('button');
+    btnAdd.className = 'tree-btn';
+    btnAdd.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2v8M2 6h8"/></svg>';
+    btnAdd.title = '添加子节点';
+    btnAdd.onclick = () => {
+      if (!node.children) node.children = [];
+      node.children.push({text: '新节点', children: [], _expanded: true});
+      node._expanded = true;
+      refresh();
+    };
+
+    const btnDel = document.createElement('button');
+    btnDel.className = 'tree-btn danger';
+    btnDel.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l6 6M9 3L3 9"/></svg>';
+    btnDel.title = '删除';
+    btnDel.onclick = () => {
+      if (confirm(`删除 "${node.text}"？`)) {
+        nodes.splice(idx, 1);
+        refresh();
+      }
+    };
+
+    actions.append(btnAdd, btnDel);
+    itemDiv.append(toggleBtn, textSpan, actions);
+    parentEl.appendChild(itemDiv);
+
+    if (node.children && node.children.length > 0 && node._expanded) {
+      const childDiv = document.createElement('div');
+      childDiv.className = 'tree-node';
+      parentEl.appendChild(childDiv);
+      renderTree(node.children, childDiv, level + 1);
+    }
+  });
+}
+
+function refresh() {
+  document.getElementById('tree-editor').innerHTML = '';
+  renderTree(treeData, document.getElementById('tree-editor'));
+  updatePreview();
+}
+
+function updatePreview() {
+  const lines = [];
+  function walk(nodes, level) {
+    nodes.forEach((node, i) => {
+      const isLast = i === nodes.length - 1;
+      const prefix = '   '.repeat(level);
+      const marker = isLast ? '└─ ' : '├─ ';
+      lines.push(prefix + marker + node.text);
+      if (node.children && node.children.length > 0) {
+        walk(node.children, level + 1);
+      }
+    });
+  }
+  walk(treeData, 0);
+  document.getElementById('preview').textContent = lines.join('\n');
+}
+
+document.getElementById('btn-add').onclick = () => {
+  treeData.push({text: '新节点', children: [], _expanded: true});
+  refresh();
+};
+
+document.getElementById('btn-save').onclick = async () => {
+  const btn = document.getElementById('btn-save');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const resp = await fetch('/admin/modules/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        product: '{{ product }}',
+        tree_json: JSON.stringify(treeData)
+      })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      alert('已保存');
+    } else {
+      alert('保存失败');
+    }
+  } catch (e) {
+    alert('保存失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+};
+
+refresh();
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>登录 · QA 控制台</title>
+<meta name="csrf-cookie" content="{{ csrf_cookie_name }}" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/app.css?v=13" />
+</head>
+<body>
+<div class="login-wrap">
+  <form class="login-card" method="post" action="/login">
+    <div class="mark">Q</div>
+    <h1>QA 控制台</h1>
+    <p class="sub">测试用例生成平台</p>
+    {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+    <input type="hidden" name="next" value="{{ next }}" />
+    <div class="field">
+      <label for="u">用户名</label>
+      <input id="u" name="username" autocomplete="username" autofocus required />
+    </div>
+    <div class="field">
+      <label for="p">密码</label>
+      <input id="p" name="password" type="password" autocomplete="current-password" required />
+    </div>
+    <button class="btn btn-primary" type="submit">登录</button>
+    <p class="sub" style="margin-top:16px">账号由管理员创建；如需开通请联系管理员。</p>
+  </form>
+</div>
+<script src="/static/app.js?v=16"></script>
+</body>
+</html>

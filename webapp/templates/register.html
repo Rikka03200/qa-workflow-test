@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>注册 · QA 控制台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/app.css?v=13" />
+</head>
+<body>
+<div class="login-wrap">
+  <form class="login-card" method="post" action="/register">
+    <div class="mark">Q</div>
+    <h1>注册账号</h1>
+    <p class="sub">创建你的独立工作区</p>
+    {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+    <div class="field">
+      <label for="u">用户名</label>
+      <input id="u" name="username" autocomplete="username" autofocus required />
+    </div>
+    <div class="field">
+      <label for="n">显示名（可选）</label>
+      <input id="n" name="display_name" autocomplete="name" />
+    </div>
+    <div class="field">
+      <label for="p">密码</label>
+      <input id="p" name="password" type="password" autocomplete="new-password" required />
+    </div>
+    <div class="field">
+      <label for="p2">确认密码</label>
+      <input id="p2" name="password2" type="password" autocomplete="new-password" required />
+    </div>
+    <button class="btn btn-primary" type="submit">注册并登录</button>
+    <p class="sub" style="margin-top:16px">已有账号？<a href="/login" style="color:var(--ink);font-weight:600">登录</a></p>
+  </form>
+</div>
+</body>
+</html>

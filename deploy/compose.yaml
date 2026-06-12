@@ -1,0 +1,146 @@
+x-app-env: &app-env
+  QA_WEBAPP_DATABASE_URL: ${QA_WEBAPP_DATABASE_URL:?run `python deploy/init-local-env.py` and pass --env-file deploy/env/local.env}
+  QA_FERNET_KEYS: ${QA_FERNET_KEYS:?run `python deploy/init-local-env.py` and pass --env-file deploy/env/local.env}
+  QA_DB_POOL_SIZE: ${QA_DB_POOL_SIZE:-5}
+  QA_DB_MAX_OVERFLOW: ${QA_DB_MAX_OVERFLOW:-5}
+  QA_DB_POOL_RECYCLE: ${QA_DB_POOL_RECYCLE:-3600}
+  QA_QUEUE_POOL_MIN_SIZE: ${QA_QUEUE_POOL_MIN_SIZE:-1}
+  QA_QUEUE_POOL_MAX_SIZE: ${QA_QUEUE_POOL_MAX_SIZE:-2}
+  QA_QUEUE_POOL_MAX_LIFETIME: ${QA_QUEUE_POOL_MAX_LIFETIME:-3600}
+  QA_USE_DB_ARTIFACTS: ${QA_USE_DB_ARTIFACTS:-1}
+  QA_KB_STRICT: ${QA_KB_STRICT:-1}
+  QA_WEBAPP_CONCURRENCY: ${QA_WEBAPP_CONCURRENCY:-4}
+  QA_JIRA_RATE_QPS: ${QA_JIRA_RATE_QPS:-1}
+  QA_JIRA_RATE_BURST: ${QA_JIRA_RATE_BURST:-5}
+  QA_JIRA_CACHE_TTL_SECONDS: ${QA_JIRA_CACHE_TTL_SECONDS:-900}
+  QA_QUEUE_DEPTH_WARN: ${QA_QUEUE_DEPTH_WARN:-50}
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  env_file:
+    - ./env/local.env
+  environment:
+    <<: *app-env
+  volumes:
+    - userdata:/app/userdata
+    - work:/app/.work
+    - webapp_data:/app/webapp/data
+  restart: "no"
+
+x-worker-healthcheck: &worker-healthcheck
+  test: ["CMD-SHELL", "python - <<'PY'\nfrom worker.app import QUEUES\nassert set(QUEUES) == {'generation', 'review', 'maintenance'}\nPY"]
+  interval: 30s
+  timeout: 10s
+  retries: 5
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-qa_workflow}
+      POSTGRES_USER: ${POSTGRES_USER:-qa_workflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run `python deploy/init-local-env.py` and pass --env-file deploy/env/local.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    <<: *app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "-c", "deploy/alembic.ini", "upgrade", "head"]
+
+  kb-migrate:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["python", "scripts/kb_store.py", "migrate"]
+
+  queue-migrate:
+    <<: *app
+    depends_on:
+      kb-migrate:
+        condition: service_completed_successfully
+    command: ["python", "-m", "worker.schema"]
+    profiles: ["worker"]
+
+  web:
+    <<: *app
+    environment:
+      <<: *app-env
+      QA_WEBAPP_HOST: 0.0.0.0
+      QA_WEBAPP_SECRET: ${QA_WEBAPP_SECRET:?run `python deploy/init-local-env.py` and pass --env-file deploy/env/local.env}
+      QA_USE_WORKER: ${QA_USE_WORKER:-1}
+    ports:
+      - "${QA_WEBAPP_PORT:-8800}:8800"
+    depends_on:
+      kb-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport json, urllib.request\nwith urllib.request.urlopen('http://127.0.0.1:8800/healthz', timeout=5) as r:\n    data=json.load(r)\nassert data.get('ok') is True\nPY"]
+      interval: 15s
+      timeout: 8s
+      retries: 10
+    restart: unless-stopped
+
+  worker-gen:
+    <<: *app
+    depends_on:
+      queue-migrate:
+        condition: service_completed_successfully
+    command: ["python", "-m", "procrastinate", "--verbose", "--app=worker.app.app", "worker", "--name", "gen-1", "--concurrency", "${QA_GENERATION_WORKER_CONCURRENCY:-3}", "--queues", "generation", "--wait"]
+    healthcheck: *worker-healthcheck
+    profiles: ["worker"]
+    restart: unless-stopped
+
+  worker-review:
+    <<: *app
+    depends_on:
+      queue-migrate:
+        condition: service_completed_successfully
+    command: ["python", "-m", "procrastinate", "--verbose", "--app=worker.app.app", "worker", "--name", "review-1", "--concurrency", "${QA_REVIEW_WORKER_CONCURRENCY:-6}", "--queues", "review,maintenance", "--wait"]
+    healthcheck: *worker-healthcheck
+    profiles: ["worker"]
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    depends_on:
+      queue-migrate:
+        condition: service_completed_successfully
+    command: ["python", "-m", "procrastinate", "--verbose", "--app=worker.app.app", "worker", "--queues", "generation,review,maintenance", "--wait"]
+    healthcheck: *worker-healthcheck
+    profiles: ["legacy-worker"]
+    restart: unless-stopped
+
+  backup:
+    image: postgres:16-alpine
+    env_file:
+      - ./env/local.env
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?run `python deploy/init-local-env.py` and pass --env-file deploy/env/local.env}
+      POSTGRES_DB: ${POSTGRES_DB:-qa_workflow}
+      POSTGRES_USER: ${POSTGRES_USER:-qa_workflow}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backups:/backups
+    command: ["sh", "-c", "mkdir -p /backups && pg_dump -h postgres -U $$POSTGRES_USER -d $$POSTGRES_DB -Fc -f /backups/qa_workflow-$$(date +%Y%m%d%H%M%S).dump"]
+    profiles: ["backup"]
+    restart: "no"
+
+volumes:
+  pgdata:
+  userdata:
+  work:
+  webapp_data:
+  backups:

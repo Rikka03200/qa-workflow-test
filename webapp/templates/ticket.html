@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ ear }} · QA 控制台{% endblock %}
+
+{% block topbar %}
+  <div class="crumb">
+    <a href="/?product={{ nav.product }}">我的 Sprint</a>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3l4 4-4 4"/></svg>
+    <a href="/sprint/{{ nav.product }}/{{ date }}">Sprint <span class="mono">{{ date }}</span></a>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3l4 4-4 4"/></svg>
+    <span class="cur mono">{{ ear }}</span>
+  </div>
+  <div class="spacer"></div>
+  <a class="btn btn-ghost btn-sm" href="/sprint/{{ nav.product }}/{{ date }}">返回看板</a>
+{% endblock %}
+
+{% block content %}
+  {% if not exists %}
+    <div class="panel"><div class="empty"><div class="big">数据未生成</div><span class="mono">{{ ear }}</span> 还没有生成内容，去看板「生成用例」</div></div>
+  {% else %}
+  <div class="page-h">
+    <h1 class="mono" style="font-size:26px">{{ ear }}</h1>
+    <span class="meta badge-row">
+      {% if badge.has_design %}
+        {% if badge.json_ok and not badge.review_needs_action %}<span class="tag pass"><span class="sq"></span>用例已就绪</span>
+        {% elif badge.json_ok %}<span class="tag warn" title="{{ badge.review_summary }}"><span class="sq"></span>复核待处理</span>
+        {% else %}<span class="tag fail"><span class="sq"></span>用例待修正</span>{% endif %}
+        <span class="tag"><span class="sq" style="background:var(--info)"></span>{{ badge.testpoints }} 条用例</span>
+        {% if q_pending %}<span class="tag warn"><span class="sq"></span>{{ q_pending }} 待确认</span>{% endif %}
+      {% else %}
+        <span class="tag skip"><span class="sq"></span>用例未生成</span>
+      {% endif %}
+      {% if badge.has_spotcheck %}
+        {% if badge.review_needs_action %}<span class="tag warn" title="{{ badge.review_summary }}"><span class="sq"></span>已复核·待处理</span>
+        {% else %}<span class="tag run"><span class="sq"></span>已复核</span>{% endif %}
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="tabs">
+    {% for t in tabs %}
+      {% if t.present %}
+      <a class="tab {{ 'active' if t.key==active_tab else '' }}" href="/ticket/{{ nav.product }}/{{ date }}/{{ ear }}?tab={{ t.key }}">{{ t.label }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {% if active_tab == 'overview' %}
+    {% set d = digest %}
+    <div class="ov-head">
+      <div class="ov-title">{{ d.title }}</div>
+      <div class="ov-tags">
+        {% for p in d.platforms %}<span class="platform-tag">{{ p }}</span>{% endfor %}
+      </div>
+    </div>
+    <div class="ov-stats">
+      <div class="ov-stat"><div class="n">{{ d.point_count }}</div><div class="l">测试用例</div></div>
+      <div class="ov-stat {{ 'amber' if d.pending else '' }}"><div class="n">{{ d.pending }}</div><div class="l">待确认</div></div>
+      <div class="ov-stat"><div class="n" style="{{ 'color:var(--pass)' if d.ready else ('color:var(--warn)' if d.review_needs_action else 'color:var(--muted)') }}">{{ '✓' if d.ready else ('!' if d.review_needs_action else '…') }}</div><div class="l">{{ '全部通过' if d.ready else ('复核待处理' if d.review_needs_action else '未完成') }}</div></div>
+    </div>
+    {% if d.review_needs_action %}<div class="alert warn">{{ d.review_summary }} → <a href="?tab=spot-check">查看复核</a></div>{% endif %}
+    {% if d.pending %}<div class="alert warn"><b>{{ d.pending }}</b> 项待确认 → <a href="?tab=questions">去确认</a></div>{% endif %}
+    {% if d.plan_html %}
+      <div class="section-h">需求方案</div>
+      <div class="section-card md-body">{{ d.plan_html | safe }}</div>
+    {% endif %}
+    {% if d.points %}
+      <div class="section-h">测试点（{{ d.point_count }}）</div>
+      <div class="points-list">
+        {% for p in d.points %}
+        <div class="point-item">{% if p.priority %}<span class="priority p{{ p.priority }}">P{{ p.priority }}</span>{% endif %}<span class="pt-text">{{ p.label }}</span></div>
+        {% endfor %}
+      </div>
+    {% elif not d.plan_html %}
+      <div class="empty">暂无用例 · 去看板生成</div>
+    {% endif %}
+
+  {% elif active_tab == 'questions' %}
+    {% include "partials/_questions_form.html" %}
+
+  {% elif active_tab == 'tree' %}
+    {% include "partials/_tree.html" %}
+
+  {% elif active_tab == 'spot-check' %}
+    {% if badge.review_needs_action %}<div class="alert warn">{{ badge.review_summary }}</div>
+    {% else %}<div class="alert info">复核建议已修复或正确分流；若重新生成用例，请再次复核。</div>{% endif %}
+    <div class="spot-card md-body">{{ spotcheck_html | safe }}</div>
+  {% elif active_tab == 'kb' %}
+    {% include "partials/_kb_proposal.html" %}
+  {% endif %}
+  {% endif %}
+{% endblock %}

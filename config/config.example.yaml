@@ -1,0 +1,180 @@
+# qa-workflow 配置示例
+#
+# 用法：
+#   1. cp config.example.yaml config.local.yaml
+#   2. 编辑 config.local.yaml 填入实际值（本文件保持占位符，避免 token 进 git）
+#   3. 在仓库根目录运行 claude 或 codex；MCP 会通过 scripts/mcp-atlassian-wrapper.py
+#      读取 config.local.yaml 并以**进程级**环境变量启动 mcp-atlassian，
+#      不会写入 Windows 注册表的永久环境变量。
+#
+# config.local.yaml 已 .gitignore，不会进库。
+# 本文件（example）仅含占位符，必须始终入库。
+
+# ============================================================
+# Jira（必填，公司自建实例）
+# ============================================================
+jira:
+  # 不带末尾斜杠；如果填了末尾斜杠，启动脚本会自动 strip
+  url: "REPLACE_ME"  # 例: http://jira.company.com:8080
+
+  # 自建 Jira（Server / Data Center）认证方式二选一：
+  # 方式 A：Personal Access Token（推荐，自建 Jira 8.14+）
+  personal_access_token: "REPLACE_ME"
+  # 方式 B：用户名 + 密码/API token（云版常用）—— 解注释并删上面 PAT
+  # username: "your.name@company.com"
+  # api_token: "REPLACE_ME"
+
+  # 你常用的 project key（用于 /qa:new 时校验工单是否在范围内）
+  default_project_keys:
+    - "EAR"
+
+  # SSL 证书校验：自建实例若用自签证书可设为 false（不推荐生产）
+  ssl_verify: true
+
+# ============================================================
+# Confluence（必填）
+# ============================================================
+confluence:
+  url: "REPLACE_ME"  # 例: http://confluence.company.com:8090
+
+  # 同 Jira，二选一
+  personal_access_token: "REPLACE_ME"
+  # username: "your.name@company.com"
+  # api_token: "REPLACE_ME"
+
+  # 默认搜索范围（space key 列表；为空表示全局搜）
+  default_spaces: []
+
+  ssl_verify: true
+
+# ============================================================
+# AI Providers（按需填）
+# ============================================================
+ai:
+  anthropic:
+    api_key: "REPLACE_ME_OR_LEAVE_BLANK"
+    # Claude Code 通常用本地登录态，这里留空即可
+    default_model: "claude-opus-4-7"
+
+  openai:
+    # Codex CLI 使用
+    api_key: "REPLACE_ME_OR_LEAVE_BLANK"
+    default_model: "gpt-5.5"
+
+  # 廉价批量子代理（多模型协作：弱模型批量生成，主 Claude 终检）
+  # 阿里百炼 Token Plan 团队版的 Anthropic 兼容端点；额度大、质量稍逊。
+  # 只有 api_key 是机密——填到 config.local.yaml；base_url / model 非机密。
+  cheap_provider:
+    enabled: false                 # 填好 key 后改 true，批量驱动才会启用
+    base_url: "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic"
+    api_key: "REPLACE_ME"          # Token Plan 团队版专属 key（sk-...），与百炼通用 key 不通用
+    model: "qwen3.7-max"           # 1M 上下文；确切型号以百炼控制台支持列表为准
+    max_tokens: 16384              # 单次生成输出上限（test-design.json 可能较大）
+    small_model: "qwen3.6-plus"    # 仅 claude -p 备选路径映射 haiku/sonnet/opus 用；驱动直连不需要
+
+# ============================================================
+# PostgreSQL 知识库（可选；默认本机 qa_knowledge）
+# ============================================================
+# webapp / scripts 会优先使用环境变量 QA_KB_DATABASE_URL；未设置时读取本段；
+# 再未设置则回退到 dbname=qa_knowledge user=postgres host=localhost port=5432。
+# 如需密码，只填到 gitignored 的 config.local.yaml，勿写入仓库。
+# 迁移/验收命令见 README.md「PostgreSQL 知识库」；真实 DB 测试需临时设置 QA_KB_TEST_DB=1。
+database:
+  host: "localhost"
+  port: 5432
+  knowledge_db: "qa_knowledge"
+  user: "postgres"
+  password: "REPLACE_ME_OR_LEAVE_BLANK"
+  # 或者使用完整 DSN / URL（同样只填 config.local.yaml 或环境变量）
+  # knowledge_url: "postgresql://postgres:REPLACE_ME@localhost:5432/qa_knowledge"
+
+# ============================================================
+# 平台数据库与凭证加密（Web/Worker 可选，平台化部署推荐启用）
+# ============================================================
+# 平台库使用独立 URL，避免与 qa_knowledge 知识库混用。优先用环境变量：
+#   QA_WEBAPP_DATABASE_URL / QA_DATABASE_URL / DATABASE_URL
+# Fernet key ring 用环境变量 QA_FERNET_KEYS（逗号分隔，第一枚用于新加密，后续用于解密旧密文）。
+# 本地开发未设置 QA_FERNET_KEYS 时，Web 会在 gitignored 的 webapp/data/fernet.key 自动生成开发 key。
+platform:
+  # database_url: "postgresql+psycopg://qa_workflow:REPLACE_ME@localhost:5432/qa_workflow"
+  # fernet_keys: "REPLACE_ME_FERNET_KEY"
+  legacy_file_mode: true       # 未配置平台库时，Web 继续使用 JSON/users + 文件工单根
+  worker_enabled: false        # worker skeleton 已提供；正式切换前仍由 Web JobManager 执行生成
+
+# ============================================================
+# 产品线（必填，决定 /qa:new <product> 的合法值）
+# ============================================================
+# 每个产品线绑定到 Jira project keys + Confluence spaces，用于自动定向搜索。
+# 支持旧字段（jira_project_keys/jira_board_id/kb_path）和新嵌套字段（jira/output/platforms/selection）。
+products:
+  wms:
+    display_name: "WMS + 仓配 App"
+    jira_project_keys: ["EAR"]
+    confluence_spaces: []   # 待 Confluence URL 确认后填 space key
+    kb_path: "_kb/projects/wms"
+    # 敏捷看板(rapidView) id：select_sprint 用它把 sprint 日期解析成 sprint id。
+    # 不填则脚本从本地 _jira-raw.json 的 rapidViewId 兜底推导；WMS 实测为 236。
+    jira_board_id: 236
+    output:
+      ticket_key_regex: "^[A-Z]+-\\d+$"
+      ticket_dir_glob: "EAR-*"
+    platforms:
+      labels:
+        web: "网页端"
+        仓配app: "仓配 App"
+        采配app: "采配 App"
+        pos: "POS"
+        接口: "接口"
+    selection:
+      tester: "林子宣"
+      split_pick_priority: ["web", "app", "接口", "pc", "小程序", "h5", "pos"]
+
+  # 示例：未来加新产品线时复制这一段并改名
+  # erp:
+  #   display_name: "ERP"
+  #   jira:
+  #     project_keys: ["ERP"]
+  #     board_id: 0
+  #   confluence_spaces: ["ERP"]
+  #   kb:
+  #     path: "_kb/projects/erp"
+  #   output:
+  #     ticket_key_regex: "^ERP-\\d+$"
+  #     ticket_dir_glob: "ERP-*"
+
+# ============================================================
+# Sprint 批量选单（select_sprint.py / run_sprint.py --select 用）
+# 留空则用代码内默认值；改这里即可调整选取口径，无需改脚本。详见 CLAUDE.md §4.5
+# ============================================================
+selection:
+  tester: "林子宣"                 # 问题测试员(customfield_10020) 过滤值
+  tester_jql_field: "cf[10020]"    # 测试员进 JQL 的字段引用（POST 提交，中文安全）；置 "" 则仅客户端过滤
+  issuetype: "提高"                # 工单类型（中文，客户端过滤——不能进 JQL）
+  resolution: "Unresolved"         # JQL 解决结果值；Unresolved = 字段为空（未解决）
+  # 主单缺席、本 sprint 有多个平台拆单时，按此优先级挑一个跑（命中靠前者优先）
+  split_pick_priority: ["web", "app", "接口", "pc", "小程序", "h5", "pos"]
+
+# ============================================================
+# CodeArts（v2 占位，v1 不使用）
+# ============================================================
+codearts:
+  enabled: false
+  # url: "https://devcloud.cn-north-4.huaweicloud.com"
+  # api_token: ""
+
+# ============================================================
+# 工作流偏好
+# ============================================================
+workflow:
+  # Jira 未返回 Sprint 时的手工兜底日期（YYYY-MM-DD），仅用于生成工单目录名
+  # 正常情况留空，由 /qa:new 从 Jira Sprint 字段 customfield_10125 解析
+  current_sprint_date: ""
+
+  # 默认 AI 工具（claude_code / codex），影响 /qa:new 的提示
+  default_tool: "claude_code"
+
+  # 是否允许 AI 调 Jira/Confluence **写接口**（建/改/删/评论）
+  # 默认 false → 启动脚本会给 mcp-atlassian 传 READ_ONLY_MODE=true，
+  # 服务端硬阻断所有写操作；Claude Code 权限再封一层 deny。
+  allow_write_jira: false
+  allow_write_confluence: false

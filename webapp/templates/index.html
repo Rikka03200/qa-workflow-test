@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}我的 Sprint · QA 控制台{% endblock %}
+
+{% block topbar %}
+  <div class="crumb"><span class="cur">{{ nav.product_display }} · 我的 Sprint</span></div>
+  <div class="spacer"></div>
+  {% if busy %}<span class="tag run"><span class="sq"></span>任务进行中</span>{% endif %}
+  <button class="btn btn-primary btn-sm" hx-get="/jobs/jira-sprints?product={{ nav.product }}"
+          hx-target="#ns-modal" hx-swap="innerHTML" hx-disabled-elt="this">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7.5 3.2v8.6M3.2 7.5h8.6"/></svg>
+    新增 Sprint
+  </button>
+{% endblock %}
+
+{% block content %}
+  <div class="page-h">
+    <h1>我的 Sprint</h1>
+  </div>
+
+  {% if denied %}<div class="alert warn">{{ denied }}</div>{% endif %}
+
+  {% if overview.sprints %}
+  <div class="grid cols-3">
+    {% for s in overview.sprints %}
+    <a class="card" href="/sprint/{{ nav.product }}/{{ s.date }}">
+      <div class="c-date">{{ s.date }}</div>
+      <div class="c-row"><span>本期工单</span><b>{% if s.has_selection %}{{ s.run_count }} 单{% else %}未同步{% endif %}</b></div>
+      <div class="c-row"><span>已生成</span><b>{{ s.done_count }} / {{ s.run_count }}</b></div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="panel"><div class="empty">
+    <div class="big">还没有 Sprint</div>
+    新增一个 Sprint，自动拉取属于你的工单
+    <div style="margin-top:14px">
+      <button class="btn btn-primary btn-sm" hx-get="/jobs/jira-sprints?product={{ nav.product }}"
+              hx-target="#ns-modal" hx-swap="innerHTML" hx-disabled-elt="this">新增 Sprint</button>
+    </div>
+  </div></div>
+  {% endif %}
+
+  {% if recent_jobs %}
+  <div class="panel" style="margin-top:20px">
+    <div class="panel-h"><h2>近期任务</h2><span class="count">{{ recent_jobs|length }}</span></div>
+    <table>
+      <thead><tr><th>类型</th><th>Sprint</th><th>说明</th><th>状态</th><th>时间</th></tr></thead>
+      <tbody>
+        {% for j in recent_jobs %}
+        <tr>
+          <td class="mono">{{ j.type_label or {'generate':'生成','spot-check':'复核','finalize':'复核','review':'草稿复核','resolve':'预答','kb-extract':'知识回填'}.get(j.type, j.type) }}</td>
+          <td class="mono">{{ j.sprint or '—' }}</td>
+          <td>{{ j.label }}</td>
+          <td><span class="tag {{ 'run' if j.status=='running' else ('pass' if j.status=='done' else 'fail') }}"><span class="sq"></span>{{ {'running':'运行中','done':'已完成','failed':'失败'}.get(j.status, j.status) }}</span></td>
+          <td class="mono muted">{{ j.started }}{% if j.finished %} → {{ j.finished }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div id="ns-modal"></div>
+{% endblock %}

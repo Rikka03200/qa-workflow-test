@@ -1,0 +1,62 @@
+{# 知识回填：AI 提炼候选业务规则 → 人工勾选 → 入库共享知识库 rules.md #}
+<div id="kb-panel">
+  {% set kp = kb_proposal %}
+  {% if not kp %}
+    <div class="empty">
+      <div class="big">还没有入库建议</div>
+      把这个工单确认过的业务规则沉淀进知识库，供以后类似需求复用。
+      <form hx-post="/jobs/kb-extract" hx-swap="none" style="margin-top:14px">
+        <input type="hidden" name="product" value="{{ nav.product }}">
+        <input type="hidden" name="date" value="{{ date }}">
+        <input type="hidden" name="keys" value="{{ ear }}">
+        <button class="btn btn-primary">AI 提炼可入库规则</button>
+      </form>
+      <div class="muted" style="margin-top:8px">提炼会在看板任务里跑，完成后回到本页查看</div>
+    </div>
+
+  {% elif not kp.rules %}
+    <div class="alert info">本工单没有可沉淀的新规则{% if kp.notes %}：{{ kp.notes | humanize }}{% endif %}</div>
+    <form hx-post="/jobs/kb-extract" hx-swap="none" style="margin-top:10px">
+      <input type="hidden" name="product" value="{{ nav.product }}">
+      <input type="hidden" name="date" value="{{ date }}">
+      <input type="hidden" name="keys" value="{{ ear }}">
+      <button class="btn btn-ghost btn-sm">重新提炼</button>
+    </form>
+
+  {% else %}
+    <div class="alert info">勾选要写入知识库的规则。入库后今后生成会用到这些规则；原知识库会自动备份、可回退。</div>
+    <div id="kb-result"></div>
+    <form hx-post="/jobs/kb-apply" hx-target="#kb-result" hx-swap="innerHTML">
+      <input type="hidden" name="product" value="{{ nav.product }}">
+      <input type="hidden" name="date" value="{{ date }}">
+      <input type="hidden" name="ear" value="{{ ear }}">
+      {% for r in kp.rules %}
+      <div class="q-block">
+        <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">
+          <input type="checkbox" name="idx" value="{{ loop.index0 }}" style="margin-top:5px;flex:none">
+          <span style="flex:1">
+            <span style="font-weight:600">{{ r.title }}</span>
+            <div class="md-body" style="margin:6px 0">{{ r.content | humanize }}</div>
+            <div class="muted" style="font-size:12px;white-space:pre-wrap">来源：{{ r.source | evidence }}</div>
+            {% if r.reusable_reason %}<div class="muted" style="font-size:12px">可复用：{{ r.reusable_reason | humanize }}</div>{% endif %}
+            {% if r.conflict %}<div style="font-size:12px;color:var(--warn,#b8860b)">⚠ 可能与现有规则冲突，请人工裁定：{{ r.conflict | humanize }}</div>{% endif %}
+          </span>
+        </label>
+      </div>
+      {% endfor %}
+      <div class="save-bar">
+        <button class="btn btn-primary" type="submit">应用选中入库</button>
+        <span class="htmx-indicator muted mono">写入中…</span>
+      </div>
+    </form>
+
+    {% if kp.terms %}
+      <div class="section-h" style="margin-top:16px">候选术语（参考，暂不自动入库）</div>
+      <div class="points-list">
+        {% for t in kp.terms %}<div class="point-item"><span class="pt-text"><b>{{ t.term }}</b> — {{ t.definition | humanize }}</span></div>{% endfor %}
+      </div>
+    {% endif %}
+    <div class="muted" style="margin-top:12px">提炼于 {{ kp.generated }} ·
+      <a href="/ticket/{{ nav.product }}/{{ date }}/{{ ear }}?tab=kb">刷新</a></div>
+  {% endif %}
+</div>

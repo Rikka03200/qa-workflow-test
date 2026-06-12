@@ -1,0 +1,94 @@
+{% set TL = {'root':'根','container':'容器','testpoint':'测试点','condition':'前置','step':'步骤','expect':'预期','unknown':'?'} %}
+{% set LV = {'FAIL':'错误','WARN':'提醒'} %}
+{% macro node(n) %}
+  {% if n.children and n.children|length %}
+  <details class="tnode" {% if n.type in ['root','container','testpoint'] or n.severity %}open{% endif %}>
+    <summary>
+      <div class="trow sev-{{ n.severity }}" id="{{ n.anchor }}">
+        <span class="caret">▸</span>
+        <span class="ttype {{ n.type }}">{{ TL[n.type] }}</span>
+        {% if n.priority %}<span class="priority p{{ n.priority }}">P{{ n.priority }}</span>{% endif %}
+        <span class="ttext">{{ n.text | br_safe }}</span>
+      </div>
+    </summary>
+    {% for i in n.issues %}<span class="tissue {{ i.level }}">{{ LV.get(i.level, i.level) }}：{{ i.message }}</span>{% endfor %}
+    {% for c in n.children %}{{ node(c) }}{% endfor %}
+  </details>
+  {% else %}
+  <div class="tnode">
+    <div class="trow sev-{{ n.severity }}" id="{{ n.anchor }}">
+      <span style="width:12px;flex:none"></span>
+      <span class="ttype {{ n.type }}">{{ TL[n.type] }}</span>
+      {% if n.priority %}<span class="priority p{{ n.priority }}">P{{ n.priority }}</span>{% endif %}
+      <span class="ttext">{{ n.text | br_safe }}</span>
+    </div>
+    {% for i in n.issues %}<span class="tissue {{ i.level }}" style="margin-left:40px">{{ LV.get(i.level, i.level) }}：{{ i.message }}</span>{% endfor %}
+  </div>
+  {% endif %}
+{% endmacro %}
+
+<div id="tree-panel">
+  {% if save_result %}
+    {% if save_result.ok %}<div class="alert ok">已保存{% if save_result.issues %} · {{ save_result.issues|length }} 处提醒{% endif %}</div>
+    {% elif save_result.kind == 'conflict' %}<div class="alert warn">{{ save_result.error }}</div>
+    {% elif save_result.kind in ['validation','json'] %}<div class="alert err">格式有误，未保存：{{ save_result.error }}<br>{% for i in save_result.issues %}<span class="mono">{{ LV.get(i.level, i.level) }} {{ i.path }}</span>：{{ i.message }}<br>{% endfor %}</div>
+    {% else %}<div class="alert err">{{ save_result.error }}</div>{% endif %}
+  {% endif %}
+
+  <div class="toolbar">
+    {% if tree.ok %}
+      <span class="badge-row">
+        {% if tree.fail_count %}<span class="tag fail"><span class="sq"></span>{{ tree.fail_count }} 处错误</span>{% endif %}
+        {% if tree.warn_count %}<span class="tag warn"><span class="sq"></span>{{ tree.warn_count }} 处提醒</span>{% endif %}
+        {% if not tree.fail_count and not tree.warn_count %}<span class="tag pass"><span class="sq"></span>用例格式正确</span>{% endif %}
+      </span>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="treeToggleAll(true)">全部展开</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="treeToggleAll(false)">全部折叠</button>
+    {% else %}
+      <span class="tag fail"><span class="sq"></span>用例文件无法解析</span>
+    {% endif %}
+  </div>
+
+  {% if tree.ok %}
+  <div class="tree-wrap">
+    <div class="tree">{{ node(tree.tree) }}</div>
+    <div class="issues-rail">
+      <h3>待修正（{{ tree.issues|length }}）</h3>
+      {% for i in tree.issue_anchors %}
+        <a class="issue-item {{ i.level }}" href="#{{ i.anchor }}" data-anchor="{{ i.anchor }}">
+          <span class="ip">{{ i.path }}</span>{{ i.message }}
+        </a>
+      {% else %}
+        <div class="muted">无（格式正确）</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="alert err">{{ tree.error }} — 可在下方「源码」中修正</div>
+  {% endif %}
+
+  <details class="section-card" style="margin-top:16px" {% if not tree.ok %}open{% endif %}>
+    <summary style="cursor:pointer;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:10px">
+      <span class="caret">▸</span>
+      <span>源码（高级）</span>
+      <span style="flex:1"></span>
+      <button type="button" class="btn btn-ghost btn-sm"
+              onclick="event.preventDefault();event.stopPropagation();copyRaw(this)">复制源码</button>
+    </summary>
+    <form class="raw-editor" style="margin-top:14px"
+          hx-post="/ticket/{{ product }}/{{ date }}/{{ ear }}/tree/save"
+          hx-target="#tree-panel" hx-swap="outerHTML">
+      <input type="hidden" name="mtime" value="{{ tree.mtime_ns }}">
+      <textarea name="raw" spellcheck="false">{{ tree.raw }}</textarea>
+      <div class="save-bar">
+        <button class="btn btn-primary" type="submit">保存</button>
+        <button class="btn btn-ghost" type="submit"
+                hx-post="/ticket/{{ product }}/{{ date }}/{{ ear }}/tree/validate"
+                hx-target="#precheck-result" hx-swap="innerHTML">仅校验</button>
+        <span class="htmx-indicator muted mono">处理中…</span>
+      </div>
+    </form>
+    <div id="precheck-result"></div>
+  </details>
+</div>

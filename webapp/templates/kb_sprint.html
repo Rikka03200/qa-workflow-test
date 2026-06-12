@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}知识回填 · Sprint {{ date }}{% endblock %}
+
+{% block topbar %}
+  <div class="crumb">
+    <a href="/?product={{ nav.product }}">我的 Sprint</a>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3l4 4-4 4"/></svg>
+    <a href="/sprint/{{ nav.product }}/{{ date }}">Sprint <span class="mono">{{ date }}</span></a>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3l4 4-4 4"/></svg>
+    <span class="cur">知识回填</span>
+  </div>
+  <div class="spacer"></div>
+  <a class="btn btn-ghost btn-sm" href="/sprint/{{ nav.product }}/{{ date }}">返回看板</a>
+{% endblock %}
+
+{% block content %}
+  <div class="page-h">
+    <h1>知识回填 · {{ date }}</h1>
+    <span class="meta">把本期确认的业务规则批量提炼、勾选后沉淀进共享知识库，供以后类似需求复用</span>
+  </div>
+
+  <form hx-post="/jobs/kb-extract" hx-swap="none" style="margin:6px 0 16px">
+    <input type="hidden" name="product" value="{{ nav.product }}">
+    <input type="hidden" name="date" value="{{ date }}">
+    <button class="btn btn-primary btn-sm">{% if has_any %}重新批量提炼{% else %}AI 批量提炼可入库规则{% endif %}</button>
+    <span class="muted" style="margin-left:8px">对本期所有工单提炼；在看板看任务进度，完成后回本页勾选入库</span>
+  </form>
+
+  {% if not has_any %}
+    <div class="empty"><div class="big">还没有入库建议</div>点上面「AI 批量提炼」生成（也可在单个工单详情页的「知识回填」里单独提炼）</div>
+  {% else %}
+    <div class="alert info">勾选要写入知识库的规则（可跨工单多选）。入库后今后生成会用到；原知识库自动备份、可回退。</div>
+    <div id="kb-result"></div>
+    <form hx-post="/jobs/kb-apply-batch" hx-target="#kb-result" hx-swap="innerHTML">
+      <input type="hidden" name="product" value="{{ nav.product }}">
+      <input type="hidden" name="date" value="{{ date }}">
+      {% for it in items %}
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-h">
+          <h2 class="mono">{{ it.ear }}</h2>
+          <span class="count">{{ it.rules|length }} 条候选 · {{ it.generated }}</span>
+        </div>
+        {% for r in it.rules %}
+        <div class="q-block">
+          <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">
+            <input type="checkbox" name="item" value="{{ it.ear }}:{{ loop.index0 }}" style="margin-top:5px;flex:none">
+            <span style="flex:1">
+              <span style="font-weight:600">{{ r.title }}</span>
+              <div class="md-body" style="margin:6px 0">{{ r.content | humanize }}</div>
+              <div class="muted" style="font-size:12px;white-space:pre-wrap">来源：{{ r.source | evidence }}</div>
+              {% if r.conflict %}<div style="font-size:12px;color:var(--warn,#b8860b)">⚠ 可能与现有规则冲突，请人工裁定：{{ r.conflict | humanize }}</div>{% endif %}
+            </span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      <div class="save-bar">
+        <button class="btn btn-primary" type="submit">应用选中入库</button>
+        <span class="htmx-indicator muted mono">写入中…</span>
+      </div>
+    </form>
+  {% endif %}
+{% endblock %}
+{% block scripts %}{% endblock %}

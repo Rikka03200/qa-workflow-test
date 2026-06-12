@@ -1,0 +1,37 @@
+# qa-workflow v3 Web frontend dependencies (isolated from scripts/ runtime).
+#
+# Install:
+#   pip install -r webapp/requirements-web.txt
+#
+# Notes (kept ASCII-only: pip parses this file with the system locale codec,
+# which is GBK on zh-CN Windows and chokes on non-ASCII bytes):
+# - These are extra deps for the web service only; the scripts/ weak-model
+#   chain still needs just anthropic + pyyaml.
+# - claude-agent-sdk is installed by default so Docker deployments can run
+#   strong-model audit (spot-check / resolve) headless once the endpoint is
+#   configured. Without endpoint/login configuration, the console and weak-chain
+#   generation still work and strong steps fall back to copy-command guidance.
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+jinja2>=3.1
+itsdangerous>=2.1          # signed session cookie (no database)
+python-multipart>=0.0.9    # form POST (answers / settings / login)
+pyyaml>=6.0                # reuse scripts/_load_env config parsing
+psycopg[binary,pool]>=3.2  # PostgreSQL-backed knowledge base + platform DB connector
+SQLAlchemy>=2.0.50,<2.1    # platform ORM metadata and repositories
+alembic>=1.18.4            # platform database migrations
+procrastinate>=3.8.1,<4    # PostgreSQL-backed worker queue skeleton
+cryptography>=48.0.1       # Fernet/MultiFernet credential encryption
+anthropic>=0.40            # weak-model chain default provider (ANTHROPIC-compatible, e.g. Bailian qwen);
+                           # the app launches run_sprint.py with THIS venv's python, so it must be here too
+
+# Strong-model headless audit (Claude Agent SDK). Configure an ANTHROPIC-compatible
+# endpoint or Claude Code login to enable server-side /jobs/spot-check and /jobs/resolve;
+# otherwise they fall back to copy-command guidance.
+claude-agent-sdk>=0.1
+
+# Optional OpenAI-protocol provider (GPT + OpenAI-compatible endpoints such as
+# deepseek / qwen). Needed only when a model's provider is set to "openai" in
+# settings; calls prefer /v1/responses and fall back to /v1/chat/completions.
+openai>=1.82,<3

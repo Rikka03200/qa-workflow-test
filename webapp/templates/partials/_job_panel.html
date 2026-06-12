@@ -1,0 +1,22 @@
+{# 作业日志面板：运行中通过 hx-trigger 自轮询，完成即停止。需要 job(dict) + lines(list)。 #}
+<div id="job-panel"
+     {% if job.status == 'running' %}hx-get="/jobs/{{ job.id }}/log" hx-trigger="load delay:400ms, every 1200ms" hx-target="this" hx-swap="outerHTML"{% endif %}>
+  <div class="section-card">
+    <div class="job-head">
+      <span class="j-status {{ job.status }}">{{ {'running':'运行中','done':'已完成','failed':'失败'}.get(job.status, job.status) }}</span>
+      <b>{{ job.label }}</b>
+      <span class="muted mono">{{ job.type_label or {'generate':'生成','spot-check':'复核','finalize':'复核','review':'草稿复核','resolve':'预答','kb-extract':'知识回填'}.get(job.type, job.type) }} · {{ job.user }} · {{ job.started }}{% if job.finished %} → {{ job.finished }}{% endif %}</span>
+      <div style="flex:1"></div>
+      {% if job.status != 'running' %}
+        <a class="btn btn-ghost btn-sm" href="javascript:location.reload()">刷新</a>
+      {% else %}
+        <span class="htmx-indicator muted mono">● 运行中…</span>
+      {% endif %}
+    </div>
+    <div class="joblog">{% for l in lines|default([]) %}{{ l }}
+{% else %}<span class="jl-empty">启动中…</span>{% endfor %}</div>
+    {% if job.status != 'running' and job.rc is not none %}
+      <div class="muted mono" style="margin-top:8px">{% if job.status=='done' %}✓ 已完成{% else %}✗ 失败，查看日志后重试{% endif %}</div>
+    {% endif %}
+  </div>
+</div>

@@ -1,0 +1,90 @@
+<div class="panel">
+  <div class="panel-h">
+    <h2>工单清单</h2>
+    <span class="count">{{ board.run_count }} 待测 · {{ board.skip_count }} 已并入</span>
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+      <input type="text" placeholder="搜索工单号或功能" aria-label="筛选工单" oninput="filterTable(this,'#decisions')" />
+    </div>
+  </div>
+  <table id="decisions">
+    <thead>
+      <tr>
+        <th>工单号</th><th>功能</th><th>状态</th>
+        <th class="num">用例</th><th class="num">待确认</th><th>校验</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in board.rows %}
+      <tr class="{{ 'skip' if not r.is_run else '' }}">
+        {% set tdate = r.date_found or date %}
+        <td>
+          {% if r.is_run %}<a class="tkt" href="/ticket/{{ board.product }}/{{ tdate }}/{{ r.key }}">{{ r.key }}</a>
+          {% else %}<span class="tkt">{{ r.key }}</span>{% endif %}
+        </td>
+        <td class="title">{{ r.summary }}
+          {% if not r.is_run %}<span class="role" style="display:block">已并入主工单</span>{% endif %}
+        </td>
+        <td>
+          {% if not r.is_run %}<span class="tag skip"><span class="sq"></span>已合并</span>
+          {% elif r.needs_resume %}<span class="tag warn"><span class="sq"></span>待继续</span>
+          {% elif r.review_needs_action %}<span class="tag warn" title="{{ r.review_summary }}"><span class="sq"></span>复核待处理</span>
+          {% elif r.has_design %}<span class="tag run"><span class="sq"></span>已生成</span>
+          {% else %}<span class="tag skip"><span class="sq"></span>待生成</span>{% endif %}
+        </td>
+        {% if r.is_run and r.has_design %}
+          <td class="num colnum">{{ r.testpoints }}</td>
+          <td class="num {{ 'q-amber' if r.q_pending else 'q-zero' }}">{{ r.q_pending }}</td>
+          <td>
+            {% if r.json_ok and not r.review_needs_action %}<span class="tag pass" title="用例结构通过且复核无待处理项"><span class="sq"></span>通过</span>
+            {% elif r.json_ok %}<span class="tag warn" title="{{ r.review_summary }}"><span class="sq"></span>待处理</span>
+            {% else %}<span class="tag fail" title="用例结构或内容有问题，可重新生成"><span class="sq"></span>有问题</span>{% endif %}
+          </td>
+        {% elif r.is_run and r.has_questions %}
+          {# 已生成到「待确认」、用例还没出：用例/校验列暂为 —，但待确认数必须显示，让用户知道有几个要回答 #}
+          <td class="num dash">—</td>
+          <td class="num {{ 'q-amber' if r.q_pending else 'q-zero' }}" title="待回答的确认问题数">{{ r.q_pending }}</td>
+          <td class="dash">—</td>
+        {% else %}
+          <td class="num dash">—</td><td class="num dash">—</td><td class="dash">—</td>
+        {% endif %}
+        <td>
+          {% if r.is_run %}
+          <div class="row-ops">
+            {% if r.has_design %}
+              <a class="op" href="/ticket/{{ board.product }}/{{ tdate }}/{{ r.key }}">查看</a>
+              {% if r.needs_resume %}
+              <button type="button" class="op-btn" {% if busy %}disabled{% endif %}
+                hx-post="/jobs/generate" hx-target="#job-area" hx-swap="innerHTML"
+                hx-vals='{"product": "{{ board.product }}", "date": "{{ date }}", "mode": "resume", "keys": "{{ r.key }}"}'>继续生成</button>
+              {% endif %}
+              <button type="button" class="op-btn" {% if busy %}disabled{% endif %}
+                hx-post="/jobs/spot-check" hx-target="#job-area" hx-swap="innerHTML"
+                hx-vals='{"product": "{{ board.product }}", "date": "{{ date }}", "keys": "{{ r.key }}"}'>复核</button>
+              <button type="button" class="op-btn danger" {% if busy %}disabled{% endif %}
+                data-confirm data-confirm-title="重新生成 {{ r.key }}？"
+                data-confirm-body="会清空这个工单现有的用例和你填的待确认，重新生成一份。"
+                data-confirm-ok="重新生成"
+                hx-post="/jobs/generate" hx-target="#job-area" hx-swap="innerHTML"
+                hx-vals='{"product": "{{ board.product }}", "date": "{{ date }}", "mode": "regen", "keys": "{{ r.key }}"}'>重新生成</button>
+            {% elif r.has_questions %}
+              <a class="op" href="/ticket/{{ board.product }}/{{ tdate }}/{{ r.key }}">查看</a>
+              <button type="button" class="op-btn" {% if busy %}disabled{% endif %}
+                hx-post="/jobs/generate" hx-target="#job-area" hx-swap="innerHTML"
+                hx-vals='{"product": "{{ board.product }}", "date": "{{ date }}", "mode": "resume", "keys": "{{ r.key }}"}'>继续生成</button>
+            {% else %}
+              <button type="button" class="op-btn" {% if busy %}disabled{% endif %}
+                hx-post="/jobs/generate" hx-target="#job-area" hx-swap="innerHTML"
+                hx-vals='{"product": "{{ board.product }}", "date": "{{ date }}", "mode": "draft", "keys": "{{ r.key }}"}'>生成</button>
+            {% endif %}
+          </div>
+          {% else %}<span class="dash">—</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not board.rows %}
+      <tr><td colspan="7"><div class="empty"><div class="big">本期暂无工单</div>点右上「同步工单」从 Jira 拉取</div></td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

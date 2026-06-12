@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}设置 · QA 控制台{% endblock %}
+
+{% block topbar %}
+  <div class="crumb"><a href="/?product={{ nav.product }}">我的 Sprint</a>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3l4 4-4 4"/></svg>
+    <span class="cur">设置</span></div>
+{% endblock %}
+
+{% block content %}
+  <div class="page-h"><h1>设置</h1><span class="meta">凭证仅本人可见，加密存储</span></div>
+
+  {% if saved == 'pat' %}<div class="alert ok">已保存</div>{% endif %}
+  {% if saved == 'patcleared' %}<div class="alert ok">已清除访问令牌</div>{% endif %}
+  {% if saved == 'pwd' %}<div class="alert ok">密码已更新</div>{% endif %}
+  {% if saved == 'pwdfail' %}<div class="alert err">当前密码不正确</div>{% endif %}
+  {% if saved == 'ai' %}<div class="alert ok">已保存 AI 配置</div>{% endif %}
+
+  {% set eye %}<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>{% endset %}
+
+  <div class="section-card">
+    <h2>我的 Jira 账号</h2>
+    <form method="post" action="/settings/jira-pat" style="max-width:560px">
+      <div class="field"><label>Jira 地址</label>
+        <input name="jira_url" class="mono-input" value="{{ jira_url }}" placeholder="https://jira.公司.com"></div>
+      <div class="field" id="cfg-jira"><label>访问令牌</label>
+        <div class="secret-field">
+          <input name="jira_pat" type="password" class="mono-input" value="" autocomplete="off" placeholder="{% if secrets.jira %}已配置；留空保持不变{% else %}粘贴访问令牌{% endif %}">
+        </div>
+        {% if secrets.jira %}<div class="muted" style="margin-top:6px">已配置访问令牌；如需更换请重新粘贴，明文不会回显。</div>{% endif %}
+        {% if jira_identity.display_name %}<div class="muted" style="margin-top:6px">最近验证：{{ jira_identity.display_name }} · {{ jira_identity.verified_at }}</div>{% endif %}</div>
+      <div class="btn-row">
+        <button class="btn btn-primary">保存设置</button>
+        <button type="button" class="btn btn-ghost" data-test-jira>测试连接</button>
+        <span class="field-msg" data-jira-msg></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="section-card">
+    <h2>我的 AI 配置</h2>
+    {% for kind, title in [('weak', '生成模型'), ('strong', '复核模型')] %}
+    {% set m = ai[kind] %}
+    <h3 class="ai-h3">{{ title }}</h3>
+    <form method="post" action="/settings/ai" class="ai-form" style="max-width:560px;margin-bottom:24px" data-kind="{{ kind }}">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <div class="field"><label>接口协议</label>
+        <select name="provider">
+          <option value="anthropic" {{ 'selected' if m.provider != 'openai' else '' }}>Anthropic 兼容</option>
+          <option value="openai" {{ 'selected' if m.provider == 'openai' else '' }}>OpenAI 兼容（GPT）</option>
+        </select></div>
+      <div class="field"><label>接口地址</label>
+        <input name="base_url" class="mono-input" value="{{ m.base_url }}" placeholder="https://…/v1"></div>
+      <div class="field" id="cfg-{{ kind }}"><label>API Key</label>
+        <div class="secret-field">
+          <input name="api_key" type="password" class="mono-input" value="" autocomplete="off" placeholder="{% if secrets[kind] %}已配置；留空保持不变{% else %}粘贴 API Key{% endif %}">
+        </div>
+        {% if secrets[kind] %}<div class="muted" style="margin-top:6px">已配置 API Key；如需更换请重新粘贴，明文不会回显。</div>{% endif %}</div>
+      <div class="field"><label>模型</label>
+        <div class="model-wrap">
+          <div class="inline-wrap">
+            <input name="model" class="mono-input" value="{{ m.model }}" placeholder="如 gpt-4o / qwen3.7-max" autocomplete="off">
+            <button type="button" class="btn btn-ghost" data-list-models>获取</button>
+          </div>
+          <span class="field-msg" data-model-msg></span>
+        </div></div>
+      <button class="btn btn-primary">保存{{ title }}</button>
+    </form>
+    {% endfor %}
+    <p class="muted">复核状态：{% if strong_ok %}<span class="tag pass"><span class="sq"></span>可用</span>{% else %}<span class="tag skip"><span class="sq"></span>{{ strong_reason }}</span>{% endif %}</p>
+  </div>
+
+  <div class="section-card">
+    <h2>修改密码</h2>
+    <form method="post" action="/settings/password" style="max-width:560px">
+      <div class="field"><label>当前密码</label><input name="current" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label>新密码</label><input name="new" type="password" autocomplete="new-password" required></div>
+      <button class="btn btn-primary">更新密码</button>
+    </form>
+  </div>
+{% endblock %}
